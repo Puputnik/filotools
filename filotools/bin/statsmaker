@@ -1,0 +1,80 @@
+#!/bin/bash
+
+source $basedir/bin/functions.bash
+
+import_config
+check_defaults
+
+optfold="default"
+
+
+while getopts 'Ohfo:' OPTION; do
+  case "$OPTION" in
+    h)
+       echo "creates .stats file from filtered sam/bam files
+	   usage: filotools stats [options] <input_bams> [other options]
+	   can also glob, example:
+	   filotool stats *.bam "
+           echo "options:
+           -o: specify output folder [default = input_path/STATS]
+
+
+config file is ignored
+
+-O: force output folder as stats_path (for bam/stats)
+"
+#           -f: force overwrite of previous .stat files
+
+           exit 1
+    ;;
+
+    f)
+      force_overwrite="on"
+      ;;
+
+    o)
+      optfold="$OPTARG"
+      ;;
+
+	O) 
+		force_config_o="on"
+	;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+ins=( "$@" )
+#echo ${ins[@]}
+for infile in ${ins[@]} 
+	do
+    #if [ -z "$optfold" ]; then
+    #	outpath=$(dirname $infile)
+    #	outpath=$outpath/STATS
+    #	else 
+    #	outpath=$optfold
+    #fi
+
+	if [ "$optfold" != "default" ]; then
+		outpath=$optfold
+		else 
+		if [ "$force_config_o" == "on" ]; then
+			outpath=$stats_path
+			else
+			outpath=$(dirname $infile)/STATS
+		fi
+	fi
+
+
+	mkdir -p $outpath
+	outname=$(basename $infile)
+	outname="${outname%.*}"
+	
+	echo $infile
+	echo $outpath/$outname.stats
+	samtools view  $infile | perl /tank/Filo_utilities/filotools/base_scripts/stats_maker_0basedstart.pl > $outpath/$outname.stats &
+
+done
+
+
+

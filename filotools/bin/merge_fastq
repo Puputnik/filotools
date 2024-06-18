@@ -1,0 +1,133 @@
+#!/bin/bash
+set -e
+
+verbose="off"
+force_overwrite="off"
+#outfold=$(pwd)
+#outfold=$(echo "$outfold/MERGED/" )
+
+
+while getopts 'hfvum:o:' OPTION; do
+  case "$OPTION" in
+    h)
+       echo "
+Merge fastq files, creating a log with a list of the files used for merging
+
+usage:  merge_fastq -m <output name> <space separated list of inputs>, or glob expression, i.e.  PLB03-T0-*.fastq.gz"
+	   echo "
+logs are stored in <output_folder>/logs_merge"
+	   echo "
+flags:
+	   -f: force overwrite of previous merged files with the same name in -m
+	   -v: verbose mode
+	   -u: output .fastq files instead of .fastq.gz
+	   -o: specify output folder (otherwise default: <input_file_dir>/MERGED)
+	   "
+	   exit 1
+    ;;
+
+    f)
+      force_overwrite="on"
+      ;;
+    v)
+      verbose="on"
+      ;;
+	u)
+      uncomp="on"
+      ;;
+	m)
+      outfile="$OPTARG"
+      ;;
+	o)	
+      optfold="$OPTARG"
+      ;;
+  esac
+done
+shift "$(($OPTIND -1))"
+
+
+inputs=( "$@" )
+
+if (( ${#inputs[@]} \< 1 )) ; then
+	echo "no input files"
+	exit 1
+fi
+
+if [ -z "$outfile" ]; then
+	echo "no output file, use -m"
+	exit 1
+fi
+
+if [ -z "$optfold" ]; then
+	outfold=$(dirname $outfile)
+	outfold=$outfold/MERGED
+	else 
+	outfold=$optfold
+fi
+
+
+
+basenames_out=$(basename $outfile) # get basename of output without extension
+basenames_out=$(echo ${basenames_out} | sed 's/.fastq.gz$//')
+basenames_out=$(echo ${basenames_out} | sed 's/.fastq$//')
+
+if [ $verbose = "on" ]
+then 
+echo "The output folder is: $outfold"
+echo "The output file is: $outfold/$basenames_out"
+echo "the input files are: $inputs"
+fi
+
+basenames_in=(${inputs[@]})
+for i in "${!basenames_in[@]}"; do
+  if ! [ -f ${basenames_in[$i]} ]; then  # check if file exists
+	echo "file ${basenames_in[$i]} doesn't exist"
+	exit 1
+  fi
+  basenames_in[$i]=$(basename ${basenames_in[$i]}) # get basename of inputs without extension
+  basenames_in[$i]=$(echo ${basenames_in[$i]} | sed 's/.fastq.gz$//')
+  basenames_in[$i]=$(echo ${basenames_in[$i]} | sed 's/.fastq$//')
+done
+
+mkdir -p $outfold/logs_merge
+
+if ([ -f  $outfold/$basenames_out.fastq ] || [ -f  $outfold/$basenames_out.fastq.gz ]) && [ $force_overwrite = "off" ] ; then
+	echo "$basenames_out file exists use -f to force overwrite"
+	exit 1
+fi
+
+if [ -f  $outfold/$basenames_out.fastq ]; then rm $outfold/$basenames_out.fastq ; fi
+if [ -f  $outfold/$basenames_out.fastq.gz ]; then rm $outfold/$basenames_out.fastq.gz ; fi
+
+#echo "continue"
+
+echo -n "" > $outfold/$basenames_out.fastq
+
+printf -v joined '%s,' "${basenames_in[@]}"
+
+dat=$(date '+%d/%m/%Y'$'\t''%H:%M:%S')
+echo "$dat	$basenames_out	${joined%,}	Incomplete" > $outfold/logs_merge/$basenames_out.log
+
+for i in "${inputs[@]}"; do
+	#if  [[ $i =~  ".fastq.gz" ]] ; then
+	if  echo $i | grep -Eq  ".fastq.gz$"  ; then
+	#echo "daje gaso $i"
+	gzip -dc $i  >> $outfold/$basenames_out.fastq
+	else
+	#echo "daje nongaso $i"
+	cat $i  >> $outfold/$basenames_out.fastq
+	fi
+done
+
+if [ -z "$uncomp" ] ; then
+	gzip $outfold/$basenames_out.fastq
+fi 
+
+dat=$(date '+%d/%m/%Y'$'\t''%H:%M:%S')
+echo "$dat	$basenames_out	${joined%,}	Complete" > $outfold/logs_merge/$basenames_out.log
+#
+#
+#if [ $verbose = "on" ]
+#then
+#echo "DONE! $outfile"
+#fi

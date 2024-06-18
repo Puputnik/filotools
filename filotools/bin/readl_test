@@ -1,0 +1,198 @@
+#!/bin/bash
+source $basedir/bin/functions.bash
+
+import_config
+check_defaults
+
+optfold="default"
+
+subset="NO"
+keep_hard_clip="FALSE"
+keep_soft_clip="FALSE"	
+mapping_quality=20
+
+num_processes=4
+
+#echo $stats_path
+#echo $fastq_path
+
+#ins=( "$@" )
+#echo ${ins[@]} 
+
+#while getopts 'chf' OPTION > /dev/null 2>&1; do
+while getopts 'COIo:t:l:q:HSs:h' OPTION; do
+  case "$OPTION" in
+    h)
+       echo "calculates read counts for each readlength bin (1bp) from aligments (.stat files) or .fastq files
+	   usage: filotools readl [options] <input_file(s)> 
+	   can also glob, example:
+	   filotool readl *.bam "
+       
+	   echo "options:
+		-o: specify output folder [default = fastq_path/READL_RAW for fastq/fastq.gz input files, stats_path/READLENGTH_COUNTS for bam/stats input files]
+		-t: [INT] number of threads for multiprocessing (default: 4)
+		-s: [CHAR] folder that contains .idf files for subsetting 
+
+		filtering options (only for bam/stats)
+		-l: [CHAR] specify chr_list files (default: config)
+		-q: [INT] specify minimum mapping quality (default: 20)
+		-H: don't filter out hard clipped reads
+		-S: don't filter out soft clipped reads
+
+Config file is used by default for:
+
+chr_list
+
+-O: force output folder as readl_path (for bam/stats) and raw_readl_path (for fastq/fastq.gz)
+-I: force input  folder as stats_path (for bam/stats) and fastq_path (for fastq/fastq.gz)
+-C: combination of -O and -I
+"
+#config file is used for stats_path (if input is bam/stats) or fastq_path (if input is fastq/fastq.gz)"
+
+#-p: infer data folders from file extension. 
+#    if input file is .fastq (or .fastq.gz), .bam or .stats, file's folder respectively ovverides fastq_path, bam_path or stats_path from config file and command line
+           
+           exit 1
+    ;;
+
+	I) 
+		force_config_i="on"
+	;;
+
+	O) 
+		force_config_o="on"
+	;;
+
+	C) 
+		force_config_o="on"
+		force_config_i="on"
+		force_config="on"
+	;;
+
+	g)
+		generate_missing_files="on"
+	;;
+
+	o)
+		optfold="$OPTARG"
+	;;
+
+	H)
+		keep_hard_clip="TRUE"
+	;;
+
+	S)
+		keep_soft_clip="TRUE"	
+	;;
+
+	s)
+		subset="$OPTARG"
+	;;
+
+	l)
+		chr_list="$OPTARG"
+	;;
+
+	q)
+		mapping_quality="$OPTARG"	
+	;;
+    
+	t)
+		num_processes="$OPTARG"
+	;;
+
+	v)
+		verbose="on"	
+	;;
+
+	
+  esac
+done
+shift $((OPTIND-1))
+
+ins=( "$@" )
+
+
+#FILE=${ons[0]} 
+#echo $FILE
+
+
+for FILE in ${ins[@]} ; do
+	((i=i%num_processes)); ((i++==0)) && wait
+	sample="${FILE%%.*}"
+	ext="${FILE#*.}"
+	echo $sample
+	case $ext in
+	  "fastq" | "fastq.gz")
+	    
+		if [ "$force_config_i" == "on" ]; then
+			in_path=$fastq_path
+			else
+			in_path=$(dirname $(realpath $FILE)) 
+		fi
+
+		if [ "$optfold" != "default" ]; then
+			outpath=$optfold
+			else 
+			if [ "$force_config_o" == "on" ]; then
+				outpath=$raw_readl_path
+				else
+				outpath=$in_path/READL_RAW
+			fi
+		fi
+
+		echo "extension is $ext"
+		echo "in_path is $in_path"
+		echo "outpath is $outpath"
+		echo "$basedir/base_scripts/count_readl_fastq.R  $in_path  $outpath $sample.$ext"
+		$basedir/base_scripts/count_readl_fastq.R  $in_path  $outpath $sample.$ext
+	    
+		;;
+
+	  "bam" | "stats")
+
+			if [ "$ext" == "bam" ]; then
+				if [ "$force_config_i" == "on" ]; then
+				in_path=$stats_path
+				else
+				in_path="$(dirname $(realpath $FILE))/STATS"
+				fi				
+			fi
+
+			if [ "$ext" == "stats" ]; then 
+				if [ "$force_config_i" == "on" ]; then
+				in_path=$stats_path
+				else
+				in_path=$(dirname $(realpath $FILE)) 
+				fi
+			fi
+
+			if [ "$optfold" != "default" ]; then
+				outpath=$optfold
+				else 
+				if [ "$force_config_o" == "on" ]; then
+					outpath=$readl_path
+					else
+					outpath=$in_path/READLENGTH_COUNTS
+				fi
+			fi
+
+			echo "extension is $ext"
+			echo "in_path is $in_path"
+			echo "outpath is $outpath"
+	   		#echo $chr_list  $in_path  $outpath  
+	   		echo $chr_list  $in_path  $outpath  $sample  $keep_soft_clip  $keep_hard_clip  $mapping_quality  $subset ##### SONO ARRIVATO QUì!
+	   		$basedir/base_scripts/count_readl_nanopore_universal.R  $chr_list  $in_path  $outpath  $sample  $keep_soft_clip  $keep_hard_clip  $mapping_quality  $subset ##### SONO ARRIVATO QUì!
+	    ;;
+
+	    *)
+	    echo -n "$FILE unknown file format, skipping"
+	    ;;
+	esac &
+done
+
+echo "DONE!"
+
+#optfold = "default" di base outpath è definita dalla path in cui sei + READL_RAW o COUNTS a seconda che sei in fastq o bam/stats
+#optfold = "path/to/out" altrimenti puoi specificarla tu, e fottesega di dove ti trovi, lui fa la solita roba e cerca gli stats/fastq esporta in outspec 
+#optfold = "config" usa gli output in base al config file  a seconda del file di input (se è fastq allora la mette in READL_RAW, etc)

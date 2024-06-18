@@ -1,0 +1,100 @@
+#!/bin/bash
+
+
+export basedir=$(dirname $(realpath $0)) 
+export config_path=$basedir/config_files/default.config
+#echo $config_path
+declare -A commands=( [stats]=statsmaker [readl]=readl_test [motif]=motif_test [countmotif]=motif_count [corrmotif]=correlate_motifs.R [dutyplot]=summary_nano.R [list]=listsamples.R [mergefastq]=merge_fastq [bothbar]=both_barcoding_all_update.R [mod_dem]=mod_dem_args_multiout.pl [mod_dem_dorado]=mod_dem_dorado.pl [seqtime]=seqtime_better.R )
+
+usage="
+WELCOME TO FILOTOOLS!
+
+	command list:
+
+	stats					[OK] creates .stats file from filtered sam/bam files	doc:YES	config:NO
+	readl					[OK] calculates read counts for each readlength bin (1bp) from aligments (bam/stat files) or .fastq files
+	motif					[OK] extracts 5' 4-mer motifs  
+	countmotif				[OK] calculates 4-mer motif counts for each of the 256 motifs
+	corrmotif				[WORKING] still have to make the parser for the config, add the list of motifs
+	dutyplot				[OK] recreate MinKNOW-like duty time plots from  pore_activity_*.csv files
+	list 					[MOLTO WORKING] show all samples matching with samplename of the provided list (working only with filonamed files)
+	mergefastq				[OK] Merge fastq files, creating a log with a list of the files used for merging
+	bothbar					[OK] Create .ids files based on single/double barcoding status
+	mod_dem					[OK] demultiplex mod_mappings.bam files based on bam/stats files, or read_id files. generate per_read modification files
+	mod_dem_dorado 			[WORKING] demultiplex modcalls.bam files, produced with my dorado(mod)+guppy_barcoder pipeline,  based on bam/stats files, or read_id files. generate per_read modification files
+	seqtime         [OK maybe] 
+"
+
+arguments=( "$@" ) ; 
+#echo "${#arguments[@]}"
+#echo "${!arguments[@]}"
+#if [ -z "${!arguments[@]}" ]
+
+if [ "${arguments[0]}" == "-h" ]
+	then echo "${usage}" ; exit 1
+fi
+
+if [ "${#arguments[@]}" == 0 ]
+	then echo "${usage}" ; exit 1
+	else 
+	for idx in "${!arguments[@]}"; do
+		if [ "${arguments[$idx]}" == "-c" ]
+			then next_idx=$(expr $idx + 1) ; export config_path="${arguments[$next_idx]}" ; unset arguments[$idx] ; unset arguments[$next_idx]
+		fi
+	done
+fi
+
+if ! echo "$config_path" | grep -q ".config$" 
+	then echo "enter a valid config file, extension should be: .config" ; exit 1
+fi
+
+if ! [ -f "$config_path" ]; then
+    echo "config file: $config_path doesn't exist" ; exit 1
+fi
+
+#echo "${!arguments[@]} before"
+arguments=( "${arguments[@]}" )
+#echo "${!arguments[@]} after"
+#echo $config_path
+#arg1=${arguments[2]}
+#echo "$arg1 argomento1check"
+arg1=${arguments[0]} ; comm=${commands[$arg1]} ; unset arguments[0] # ; echo ${arguments[@]}  "intro" #### take arguments, extract first, remove first
+
+if [ -z "$comm" ]
+	then echo "command $arg1 doesn't exist" ; exit 1 
+	else $basedir/bin/$comm ${arguments[@]}
+fi
+
+
+
+
+
+
+
+
+
+#echo $comm "prima"
+
+#if (( ${commands[$arg1]} ))
+#if [ -z "$comm" ]
+#	#then $basedir/bin/${commands[$arg1]}
+#	then echo "command $arg1 doesn't exist" ; exit 1 
+#	else $basedir/bin/$comm ${arguments[@]}
+#fi
+
+
+#echo ${arguments[@]} "fine"
+
+
+#if [ -z "$comm" ]
+#	#then $basedir/bin/${commands[$arg1]}
+#	then if [ "$arg1" == "-h" ]
+#		then echo "command list:
+#stats					creates .stats file from filtered sam/bam files	doc:YES	config:NO
+#readl
+#"
+#		else echo "command $arg1 doesn't exist" ; exit 1 
+#	fi
+#	else $basedir/bin/$comm ${arguments[@]}
+#fi
+

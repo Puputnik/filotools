@@ -1,0 +1,4 @@
+#!/bin/bash
+
+#ls | grep 'fastq\|bam\|stats\|motif\|readlength' | awk -v FS="-" '{print $1}' | sort | uniq | while read o ; do echo $o: ; ls $o* ; echo ; done
+ grep 'fastq\|bam\|stats\|motif\|readlength' | awk -v FS="-" '{print $1}' | sort | uniq | while read o ; do echo $o: ; ls $o* ; echo ; done

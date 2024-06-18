@@ -1,0 +1,8 @@
+fastq_path	.fastq.gz,.fastq
+bam_path	.srt.bam,.bam,.sam
+stats_path	.stats
+motif_path	.motif
+motif_count_path	.motif.log,.motif.R
+readl_path	.readlength_counts.R
+raw_readl_path	_RAW.readlength_counts.R
+merged_fastq_path	.fastq.gz,.fastq
